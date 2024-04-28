@@ -9,27 +9,26 @@ void Reassembler::insert( uint64_t first_index, std::string data, bool is_last_s
         return;
     }
 
-	if (is_last_substring == true)
+    if (is_last_substring == true)
     {
         is_last_ = true;
-		end_mark_ = first_index + data.size(); 
+        end_mark_ = first_index + data.size();
     }
 
     //stream is closed or capacity is not enough
     if (output_.writer().is_closed() == true or output_.writer().available_capacity() == 0)
         return;
-    
+
     first_unassembled_index_ = output_.writer().bytes_pushed();
     first_unaccepted_index_ = first_unassembled_index_ + output_.writer().available_capacity();
 
-	//out of range
-	if (first_index + data.size() <=  first_unassembled_index_ or first_index >= first_unaccepted_index_)   
+    //out of range
+    if (first_index + data.size() <=  first_unassembled_index_ or first_index >= first_unaccepted_index_)
         return;
 
     //handle overlapping with has pushed
     if (first_index < first_unassembled_index_)
     {
-        //data = data.substr(first_unassembled_index_- first_index);
         data.erase(0, first_unassembled_index_ - first_index);
         first_index = first_unassembled_index_;
     }
@@ -37,12 +36,11 @@ void Reassembler::insert( uint64_t first_index, std::string data, bool is_last_s
     //remove the unaccepted bytes
     if (first_index + data.size() >= first_unaccepted_index_)
     {
-        //data = data.substr(0, first_unaccepted_index_ - first_index);
         data.resize(first_unaccepted_index_ - first_index);
         is_last_substring = false; //not fininshed
     }
 
-    auto last_index = first_index + data.size() - 1; //the right bound 
+    auto last_index = first_index + data.size() - 1; //the right bound
     auto left_it = buffer_map_.lower_bound(first_index);
     //handle the left overlapping
     if (left_it != buffer_map_.begin() ) //not the first element but can be not found(return the end iter)
@@ -52,9 +50,9 @@ void Reassembler::insert( uint64_t first_index, std::string data, bool is_last_s
         if (prev->first + prev->second.size() - 1 >= first_index)
         {
             //data is fully overlapped
-            if (prev->first + prev->second.size() - 1 >= last_index) 
+            if (prev->first + prev->second.size() - 1 >= last_index)
                 return;
-            
+
             data = prev->second.substr(0, first_index - prev->first) + data; //merge
             first_index = prev->first;
             pending_bytes_counter_ -= prev->second.size();
@@ -66,7 +64,7 @@ void Reassembler::insert( uint64_t first_index, std::string data, bool is_last_s
     { //is the first position
         if (not buffer_map_.empty() )
         {
-            if (first_index == left_it->first and last_index <= left_it->first + left_it->second.size() - 1)     
+            if (first_index == left_it->first and last_index <= left_it->first + left_it->second.size() - 1)
                 return;
         }
     }
@@ -88,7 +86,7 @@ void Reassembler::insert( uint64_t first_index, std::string data, bool is_last_s
         pending_bytes_counter_ -= left_it->second.size();
         left_it = buffer_map_.erase(left_it);
     }
-    
+
     //handle the right_it
     if (right_it != buffer_map_.end() and right_it->first == last_index)
     {
@@ -114,29 +112,29 @@ void Reassembler::insert( uint64_t first_index, std::string data, bool is_last_s
         {
             if (it2->first != output_.writer().bytes_pushed() )
             {
-                break;   
+                break;
             }
 
             else
             {
                 pending_bytes_counter_ -= it2->second.size();
-                output_.writer().push(it2->second);      
+                output_.writer().push(it2->second);
                 it2 = buffer_map_.erase(it2);
             }
         }
     }
-    
+
     else
     {
         buffer_map_[first_index] = data;
         pending_bytes_counter_ += data.size();
     }
 
-    if (is_last_ == true and output_.writer().bytes_pushed() == end_mark_)  
+    if (is_last_ == true and output_.writer().bytes_pushed() == end_mark_)
         output_.writer().close();
 }
 
 uint64_t Reassembler::bytes_pending() const
 {
     return pending_bytes_counter_;
-}
+}                                                         
