@@ -52,7 +52,7 @@ void Reassembler::insert(uint64_t first_index, std::string data, bool is_last_su
     auto left_it = buffer_map_.upper_bound( first_index );
     if ( left_it != buffer_map_.begin() ) //not the first element but can be not found(return the end iter)
     {
-        auto prev = std::prev(left_it);
+        auto prev = std::prev( left_it );
         //left overlapping
         if ( prev->first + prev->second.size() - 1 >= first_index )
         {
@@ -62,7 +62,7 @@ void Reassembler::insert(uint64_t first_index, std::string data, bool is_last_su
                 return;
             }
 
-            data = prev->second.substr(0, first_index - prev->first) + data; //merge
+            data = prev->second.substr( 0, first_index - prev->first ) + data; //merge
             first_index = prev->first;
             pending_bytes_counter_ -= prev->second.size();
             buffer_map_.erase(prev);
@@ -87,8 +87,8 @@ void Reassembler::insert(uint64_t first_index, std::string data, bool is_last_su
         left_it = buffer_map_.erase( left_it );
     } //erase [left_it, right_it)
 
-    buffer_map_.emplace_hint(left_it, first_index, data);
     pending_bytes_counter_ += data.size();
+    buffer_map_.emplace_hint(left_it, first_index, std::move( data ) );
 
     //check the bytes after
     while ( not buffer_map_.empty() )
