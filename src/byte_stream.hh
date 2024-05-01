@@ -4,6 +4,11 @@
 #include <string>
 #include <string_view>
 
+#include <algorithm>
+#include <deque>
+#include <utility>
+
+
 class Reader;
 class Writer;
 
@@ -25,6 +30,15 @@ protected:
   // Please add any additional state to the ByteStream here, and not to the Writer and Reader interfaces.
   uint64_t capacity_;
   bool error_ {};
+  bool is_closed_{false};
+  
+  std::deque<std::string> buffer_deque_{};
+  std::deque<std::string_view> view_deque_{};
+
+  uint64_t pushed_bytes_counter_ {0};
+  uint64_t buffered_bytes_counter_ {0};
+  uint64_t popped_bytes_counter_ {0}; 
+
 };
 
 class Writer : public ByteStream
@@ -43,9 +57,8 @@ class Reader : public ByteStream
 public:
   std::string_view peek() const; // Peek at the next bytes in the buffer
   void pop( uint64_t len );      // Remove `len` bytes from the buffer
-
   bool is_finished() const;        // Is the stream finished (closed and fully popped)?
-  uint64_t bytes_buffered() const; // Number of bytes currently buffered (pushed and not popped)
+  uint64_t bytes_buffered() const; // Number of bytes currently buffered (pushed and not popped)SS
   uint64_t bytes_popped() const;   // Total number of bytes cumulatively popped from stream
 };
 
