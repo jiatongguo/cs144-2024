@@ -34,7 +34,8 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
   window_size_ = msg.window_size; // 更新窗口
 
   uint64_t abs_ackno {msg.ackno.value().unwrap(isn_, next_abs_seqno_)};
-
+  
+  bool acked_any {false};
   while (!outstanding_segments_.empty())
   {
     TCPSenderMessage seg { outstanding_segments_.front() };
@@ -43,6 +44,8 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
     {
       outstanding_bytes_ -= seg.sequence_length();
       outstanding_segments_.pop();
+
+      acked_any = true;
     }
 
     else
@@ -51,9 +54,12 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
     }
   }
 
-  RTO_ms_ = initial_RTO_ms_;
-  timer_elapsed_ = 0;
-  consecutive_retransmissions_ = 0;
+  if (acked_any)
+  {
+    RTO_ms_ = initial_RTO_ms_;
+    timer_elapsed_ = 0;
+    consecutive_retransmissions_ = 0;
+  }
 
   if (outstanding_segments_.empty())
   {
