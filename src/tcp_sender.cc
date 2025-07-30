@@ -32,8 +32,26 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
 
 void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& transmit )
 {
-  // Your code here.
-  (void)ms_since_last_tick;
-  (void)transmit;
-  (void)initial_RTO_ms_;
+  if (timer_running_) 
+  {
+    timer_elapsed_ += ms_since_last_tick;
+  }
+
+  if (timer_elapsed_ >= RTO_ms_) // 超时
+  {
+    if (outstanding_segments_.empty())  
+    {
+      return;
+    }
+
+    transmit(outstanding_segments_.front());  // 重传
+
+    if (window_size_ != 0)
+    {
+      ++consecutive_retransmissions_;
+      RTO_ms_ *= 2;
+    }
+
+    timer_elapsed_ = 0; // 重置计时器
+  }
 }
