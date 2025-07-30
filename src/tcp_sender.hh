@@ -48,4 +48,20 @@ private:
   ByteStream input_;
   Wrap32 isn_;
   uint64_t initial_RTO_ms_;
+
+  //
+  bool timer_running {false};
+  uint64_t timer_elapsed {};
+  
+  uint64_t RTO_ms {};
+
+  uint64_t outstanding_bytes; // 未ack字节
+  uint64_t consecutive_retransmissions {}; // 重传次数
+  std::queue<TCPSenderMessage> outstanding_segments {}; 
+
+  uint16_t window_size {1};
+  uint64_t next_abs_seqno {}; // 下一序列号
+
+  bool SYN_sent;
+  bool FIN_sent;
 };
