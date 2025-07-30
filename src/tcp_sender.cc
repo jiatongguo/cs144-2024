@@ -26,8 +26,40 @@ TCPSenderMessage TCPSender::make_empty_message() const
 
 void TCPSender::receive( const TCPReceiverMessage& msg )
 {
-  // Your code here.
-  (void)msg;
+  if (!msg.ackno.has_value())
+  {
+    return;
+  }
+
+  window_size_ = msg.window_size; // 更新窗口
+
+  uint64_t abs_ackno {msg.ackno.value().unwrap(isn_, next_abs_seqno_)};
+
+  while (!outstanding_segments_.empty())
+  {
+    TCPSenderMessage seg { outstanding_segments_.front() };
+
+    if (seg.seqno.unwrap(isn_, next_abs_seqno_) + seg.sequence_length() <= abs_ackno) // 已ack, pop
+    {
+      outstanding_bytes_ -= seg.sequence_length();
+      outstanding_segments_.pop();
+    }
+
+    else
+    {
+      break;
+    }
+  }
+
+  RTO_ms_ = initial_RTO_ms_;
+  timer_elapsed_ = 0;
+  consecutive_retransmissions_ = 0;
+
+  if (outstanding_segments_.empty())
+  {
+    timer_running_ = false;
+    timer_elapsed_ = 0;
+  }
 }
 
 void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& transmit )
