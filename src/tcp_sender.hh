@@ -50,18 +50,18 @@ private:
   uint64_t initial_RTO_ms_;
 
   //
-  bool timer_running {false};
-  uint64_t timer_elapsed {};
-  
-  uint64_t RTO_ms {};
+  bool timer_running_ {false};
+  uint64_t timer_elapsed_ {};
 
-  uint64_t outstanding_bytes; // 未ack字节
-  uint64_t consecutive_retransmissions {}; // 重传次数
-  std::queue<TCPSenderMessage> outstanding_segments {}; 
+  uint64_t RTO_ms_ {};
 
-  uint16_t window_size {1};
-  uint64_t next_abs_seqno {}; // 下一序列号
+  uint64_t outstanding_bytes_ {}; // 未ack字节
+  uint64_t consecutive_retransmissions_ {}; // 重传次数
+  std::queue<TCPSenderMessage> outstanding_segments_ {}; 
 
-  bool SYN_sent;
-  bool FIN_sent;
+  uint16_t window_size_ {1};
+  uint64_t next_abs_seqno_ {}; // 下一序列号
+
+  bool SYN_sent_ {false};
+  bool FIN_sent_{false};
 };
