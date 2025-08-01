@@ -27,7 +27,7 @@ void TCPSender::push( const TransmitFunction& transmit )
     {
       return;
     }
-    
+
     TCPSenderMessage msg { make_empty_message() };
     if (!SYN_sent_)  // 发syn包
     {
@@ -63,7 +63,7 @@ void TCPSender::push( const TransmitFunction& transmit )
 
     transmit(msg);
 
-    if (timer_running_ == false)
+    if (!timer_running_) // 启动计时器
     {
         timer_running_ = true; 
         timer_elapsed_ = 0;
@@ -83,6 +83,10 @@ TCPSenderMessage TCPSender::make_empty_message() const
 void TCPSender::receive( const TCPReceiverMessage& msg )
 {
   window_size_ = msg.window_size; // 更新窗口
+  if (msg.window_size == 0)
+  {
+    zero_window_ = true;
+  }
 
   if (!msg.ackno.has_value())
   {
@@ -120,12 +124,12 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
     RTO_ms_ = initial_RTO_ms_;
     timer_elapsed_ = 0;
     consecutive_retransmissions_ = 0;
-  }
 
-  if (outstanding_segments_.empty())
-  {
-    timer_running_ = false;
-    timer_elapsed_ = 0;
+    if (outstanding_segments_.empty())
+    {
+      timer_running_ = false;
+      timer_elapsed_ = 0;
+    }
   }
 }
 
@@ -147,7 +151,7 @@ void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& trans
 
     transmit(outstanding_segments_.front());  // 重传
 
-    if (window_size_ != 0)
+    if (!zero_window_)
     {
       ++consecutive_retransmissions_;
       RTO_ms_ *= 2;

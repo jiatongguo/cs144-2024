@@ -64,4 +64,5 @@ private:
 
   bool SYN_sent_ {false};
   bool FIN_sent_{false};
+  bool zero_window_ {false};
 };
