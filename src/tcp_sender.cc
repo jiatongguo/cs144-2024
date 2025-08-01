@@ -82,6 +82,12 @@ TCPSenderMessage TCPSender::make_empty_message() const
 
 void TCPSender::receive( const TCPReceiverMessage& msg )
 {
+  if (msg.RST)
+  {
+    input_.set_error();
+    return;
+  }
+
   window_size_ = msg.window_size; // 更新窗口
   if (msg.window_size == 0)
   {
