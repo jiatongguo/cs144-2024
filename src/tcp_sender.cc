@@ -26,11 +26,6 @@ void TCPSender::push( const TransmitFunction& transmit )
     return;
   }
 
-  // if (SYN_sent_ && !FIN_sent_ && reader().bytes_buffered() == 0)
-  // {
-  //   return;
-  // }
-
   TCPSenderMessage msg { make_empty_message() };
   if (!SYN_sent_)  // 发syn包
   {
@@ -63,7 +58,7 @@ void TCPSender::push( const TransmitFunction& transmit )
   {
     return;
   }
-  
+
   transmit(msg);
 
   if (timer_running_ == false)
@@ -92,6 +87,11 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
   window_size_ = msg.window_size; // 更新窗口
 
   uint64_t abs_ackno {msg.ackno.value().unwrap(isn_, next_abs_seqno_)};
+
+  if (abs_ackno > next_abs_seqno_) // 不可能的ack
+  {
+    return;
+  }
   
   bool acked_any {false};
   while (!outstanding_segments_.empty())
