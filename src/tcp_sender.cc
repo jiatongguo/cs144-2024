@@ -26,13 +26,13 @@ void TCPSender::push( const TransmitFunction& transmit )
     return;
   }
 
-  if (SYN_sent_ && !FIN_sent_ && reader().bytes_buffered() == 0)
-  {
-    return;
-  }
+  // if (SYN_sent_ && !FIN_sent_ && reader().bytes_buffered() == 0)
+  // {
+  //   return;
+  // }
 
   TCPSenderMessage msg { make_empty_message() };
-  if (SYN_sent_ == false)  // 发syn包
+  if (!SYN_sent_)  // 发syn包
   {
       msg.SYN = true;
       SYN_sent_ = true;
@@ -53,12 +53,17 @@ void TCPSender::push( const TransmitFunction& transmit )
 
   msg.payload = payload;
 
-  if (FIN_sent_ == false && window_size_ - outstanding_bytes_ - payload.size() > 0 && reader().is_finished() )
+  if (!FIN_sent_&& (window_size_ > outstanding_bytes_ + msg.sequence_length()) && reader().is_finished() )
   {
       FIN_sent_ = true;
       msg.FIN  = true;
   }
-
+  
+  if (msg.sequence_length() == 0) // 没有任何信息的空段
+  {
+    return;
+  }
+  
   transmit(msg);
 
   if (timer_running_ == false)
