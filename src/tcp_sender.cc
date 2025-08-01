@@ -50,7 +50,7 @@ void TCPSender::push( const TransmitFunction& transmit )
         max_payload -= payload.size();
         input_.reader().pop(view.size()); // 从缓冲区删除
   }
-  
+
   msg.payload = payload;
 
   if (FIN_sent_ == false && window_size_ - outstanding_bytes_ - payload.size() > 0 && reader().is_finished() )
@@ -123,10 +123,12 @@ void TCPSender::receive( const TCPReceiverMessage& msg )
 
 void TCPSender::tick( uint64_t ms_since_last_tick, const TransmitFunction& transmit )
 {
-  if (timer_running_) 
+  if (!timer_running_)
   {
-    timer_elapsed_ += ms_since_last_tick;
+    return;
   }
+
+  timer_elapsed_ += ms_since_last_tick;
 
   if (timer_elapsed_ >= RTO_ms_) // 超时
   {
