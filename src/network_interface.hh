@@ -1,7 +1,9 @@
 #pragma once
 
 #include <queue>
-
+#include <unordered_map>
+#include <utility>
+#include <deque>
 #include "address.hh"
 #include "ethernet_frame.hh"
 #include "ipv4_datagram.hh"
@@ -74,11 +76,16 @@ private:
   void transmit( const EthernetFrame& frame ) const { port_->transmit( *this, frame ); }
 
   // Ethernet (known as hardware, network-access-layer, or link-layer) address of the interface
-  EthernetAddress ethernet_address_;
+  EthernetAddress ethernet_address_; // 本机mac地址
 
   // IP (known as internet-layer or network-layer) address of the interface
   Address ip_address_;
 
   // Datagrams that have been received
   std::queue<InternetDatagram> datagrams_received_ {};
+
+  using AddrNumeric = decltype(ip_address_.ipv4_numeric()); 
+
+  std::unordered_map<AddrNumeric, std::pair<EthernetAddress, size_t>> arp_cache_ {}; // ip --> mac
+  std::unordered_map<AddrNumeric, std::deque<InternetDatagram>> dgram_waiting_queue_ {};
 };

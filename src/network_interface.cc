@@ -27,9 +27,47 @@ NetworkInterface::NetworkInterface( string_view name,
 //! can be converted to a uint32_t (raw 32-bit IP address) by using the Address::ipv4_numeric() method.
 void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Address& next_hop )
 {
-  // Your code here.
-  (void)dgram;
-  (void)next_hop;
+  const auto addr_ipv4 = next_hop.ipv4_numeric();
+
+  auto it1 = arp_cache_.find(addr_ipv4);
+  if (it1 != arp_cache_.end()) // 已arp
+  {
+    EthernetFrame frame {};
+    frame.header.dst = it1->second.first; // 目的地址
+    frame.header.src = ethernet_address_; // 源地址
+    frame.header.type = EthernetHeader::TYPE_IPv4; // 类型
+    frame.payload = serialize(std::move(dgram)); // 负载
+
+    transmit(frame);
+  }
+  else
+  {
+    ARPMessage apr_msg {};
+    apr_msg.opcode = 1; // request
+    apr_msg.sender_ethernet_address = ethernet_address_;
+    apr_msg.sender_ip_address = addr_ipv4;
+    apr_msg.target_ethernet_address = {};
+    apr_msg.target_ip_address = addr_ipv4;
+
+    EthernetFrame frame {};
+    frame.header.dst = ETHERNET_BROADCAST; // 目的地址, 广播
+    frame.header.src = ethernet_address_; // 源地址
+    frame.header.type = EthernetHeader::TYPE_ARP; // arp类型
+
+    frame.payload = serialize(std::move(apr_msg)); // 负载
+
+    transmit(frame);
+
+    auto it2 = dgram_waiting_queue_.find(addr_ipv4);
+    if (it2 == dgram_waiting_queue_.end()) // 不在数据报队列中
+    {
+      dgram_waiting_queue_.insert({addr_ipv4, {dgram}}); 
+    }
+    else
+    {
+      it2->second.emplace_back(dgram);
+    }
+  }
 }
 
 //! \param[in] frame the incoming Ethernet frame
