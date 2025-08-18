@@ -1,3 +1,4 @@
+#include "tcp_minnow_socket.hh" 
 #include "socket.hh"
 
 #include <cstdlib>
@@ -7,7 +8,7 @@
 
 void get_URL( const std::string& host, const std::string& path )
 {
-  TCPSocket sock;
+  CS144TCPSocket sock; // 将TCPSocket改为CS144TCPSocket
   Address addr( host, "http" );
 
   sock.connect( addr );
