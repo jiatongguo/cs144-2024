@@ -73,13 +73,25 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
 //! \param[in] frame the incoming Ethernet frame
 void NetworkInterface::recv_frame( const EthernetFrame& frame )
 {
-  // Your code here.
-  (void)frame;
+  if (frame.header.dst != ethernet_address_ && frame.header.dst != ETHERNET_BROADCAST)
+  {
+    return;
+  }
+
+  if (frame.header.type == EthernetHeader::TYPE_IPv4)
+  {
+
+  }
+
+  else if (frame.header.type == EthernetHeader::TYPE_ARP)
+  {
+
+  }
 }
 
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
 void NetworkInterface::tick( const size_t ms_since_last_tick )
 {
   // Your code here.
-  (void)ms_since_last_tick;
+  timer_elapsed += ms_since_last_tick;
 }
