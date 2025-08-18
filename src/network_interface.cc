@@ -96,27 +96,48 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
   else if (frame.header.type == EthernetHeader::TYPE_ARP)
   {
     ARPMessage arp_msg{};
-    if (parse(arp_msg, frame.payload))
+    if (!parse(arp_msg, frame.payload))
     {
-      arp_cache_.insert({arp_msg.sender_ip_address, {arp_msg.sender_ethernet_address, timer_elapsed}}); //
-      if (arp_msg.opcode == ARPMessage::OPCODE_REQUEST)
+      return;
+    }
+
+    arp_cache_.insert({arp_msg.sender_ip_address, {arp_msg.sender_ethernet_address, timer_elapsed + 30000}}); 
+    
+    if (arp_msg.opcode == ARPMessage::OPCODE_REQUEST)
+    {
+      ARPMessage arp_reply {};
+      arp_reply.opcode = ARPMessage::OPCODE_REPLY; // reply
+      arp_reply.sender_ethernet_address = ethernet_address_;
+      arp_reply.sender_ip_address = ip_address_.ipv4_numeric();
+      arp_reply.target_ethernet_address = arp_msg.sender_ethernet_address;
+      arp_reply.target_ip_address = arp_msg.sender_ip_address;
+
+      EthernetFrame frame_reply {};
+      frame_reply.header.dst = arp_msg.sender_ethernet_address;
+      frame_reply.header.src = ethernet_address_;
+      frame_reply.header.type = EthernetHeader::TYPE_ARP;
+
+      frame_reply.payload = serialize(std::move(arp_reply));
+
+      transmit(frame_reply);
+    }
+    
+    // 立即发送等待队列中的数据报
+    auto it = dgram_waiting_queue_.find(arp_msg.sender_ip_address);
+    if (it != dgram_waiting_queue_.end())
+    {
+      for (auto& dgram : it->second)
       {
-        ARPMessage arp_reply {};
-        arp_reply.opcode = ARPMessage::OPCODE_REPLY; // reply
-        arp_reply.sender_ethernet_address = ethernet_address_;
-        arp_reply.sender_ip_address = ip_address_.ipv4_numeric();
-        arp_reply.target_ethernet_address = arp_msg.sender_ethernet_address;
-        arp_reply.target_ip_address = arp_msg.sender_ip_address;
+        EthernetFrame frame {};
+        frame.header.dst = arp_msg.sender_ethernet_address;
+        frame.header.src = ethernet_address_;
+        frame.header.type = EthernetHeader::TYPE_IPv4; 
+        frame.payload = serialize(std::move(dgram)); 
 
-        EthernetFrame frame_reply {};
-        frame_reply.header.dst = arp_msg.sender_ethernet_address;
-        frame_reply.header.src = ethernet_address_;
-        frame_reply.header.type = EthernetHeader::TYPE_ARP;
-
-        frame_reply.payload = serialize(std::move(arp_reply));
-
-        transmit(frame_reply);
+        transmit(frame);
       }
+
+      dgram_waiting_queue_.erase(it);
     }
   }
 }
@@ -129,7 +150,7 @@ void NetworkInterface::tick( const size_t ms_since_last_tick )
   auto it = arp_cache_.begin();
   while (it != arp_cache_.end())
   {
-    if (it->second.second > timer_elapsed + 30000)
+    if (timer_elapsed > it->second.second )
     {
       it = arp_cache_.erase(it);
     }
