@@ -42,21 +42,27 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
   }
   else
   {
-    ARPMessage apr_msg {};
-    apr_msg.opcode = 1; // request
-    apr_msg.sender_ethernet_address = ethernet_address_;
-    apr_msg.sender_ip_address = addr_ipv4;
-    apr_msg.target_ethernet_address = {};
-    apr_msg.target_ip_address = addr_ipv4;
+    auto it = arp_last_request_time.find(addr_ipv4);
+    if (it == arp_last_request_time.end() || it->second < timer_elapsed ) // arp抑制（5s)
+    {
+      ARPMessage arp_msg {};
+      arp_msg.opcode = ARPMessage::OPCODE_REQUEST; // request
+      arp_msg.sender_ethernet_address = ethernet_address_;
+      arp_msg.sender_ip_address = ip_address_.ipv4_numeric();
+      arp_msg.target_ethernet_address = {};
+      arp_msg.target_ip_address = addr_ipv4;
 
-    EthernetFrame frame {};
-    frame.header.dst = ETHERNET_BROADCAST; // 目的地址, 广播
-    frame.header.src = ethernet_address_; // 源地址
-    frame.header.type = EthernetHeader::TYPE_ARP; // arp类型
+      EthernetFrame frame {};
+      frame.header.dst = ETHERNET_BROADCAST; // 目的地址, 广播
+      frame.header.src = ethernet_address_;
+      frame.header.type = EthernetHeader::TYPE_ARP; // arp类型
 
-    frame.payload = serialize(std::move(apr_msg)); // 负载
+      frame.payload = serialize(std::move(arp_msg)); 
 
-    transmit(frame);
+      transmit(frame);
+
+      arp_last_request_time[addr_ipv4] = timer_elapsed + 5000; // 插入或更新过期时间
+    }
 
     auto it2 = dgram_waiting_queue_.find(addr_ipv4);
     if (it2 == dgram_waiting_queue_.end()) // 不在数据报队列中
@@ -123,7 +129,7 @@ void NetworkInterface::tick( const size_t ms_since_last_tick )
   auto it = arp_cache_.begin();
   while (it != arp_cache_.end())
   {
-    if (it->second.second > timer_elapsed + 3000)
+    if (it->second.second > timer_elapsed + 30000)
     {
       it = arp_cache_.erase(it);
     }
