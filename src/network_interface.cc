@@ -89,7 +89,29 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
 
   else if (frame.header.type == EthernetHeader::TYPE_ARP)
   {
-    
+    ARPMessage arp_msg{};
+    if (parse(arp_msg, frame.payload))
+    {
+      arp_cache_.insert({arp_msg.sender_ip_address, {arp_msg.sender_ethernet_address, timer_elapsed}}); //
+      if (arp_msg.opcode == ARPMessage::OPCODE_REQUEST)
+      {
+        ARPMessage arp_reply {};
+        arp_reply.opcode = ARPMessage::OPCODE_REPLY; // reply
+        arp_reply.sender_ethernet_address = ethernet_address_;
+        arp_reply.sender_ip_address = ip_address_.ipv4_numeric();
+        arp_reply.target_ethernet_address = arp_msg.sender_ethernet_address;
+        arp_reply.target_ip_address = arp_msg.sender_ip_address;
+
+        EthernetFrame frame_reply {};
+        frame_reply.header.dst = arp_msg.sender_ethernet_address;
+        frame_reply.header.src = ethernet_address_;
+        frame_reply.header.type = EthernetHeader::TYPE_ARP;
+
+        frame_reply.payload = serialize(std::move(arp_reply));
+
+        transmit(frame_reply);
+      }
+    }
   }
 }
 
@@ -98,4 +120,16 @@ void NetworkInterface::tick( const size_t ms_since_last_tick )
 {
   // Your code here.
   timer_elapsed += ms_since_last_tick;
+  auto it = arp_cache_.begin();
+  while (it != arp_cache_.end())
+  {
+    if (it->second.second > timer_elapsed + 3000)
+    {
+      it = arp_cache_.erase(it);
+    }
+    else
+    {
+      ++it;
+    }
+  }
 }
