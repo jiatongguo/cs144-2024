@@ -5,7 +5,7 @@
 #include "network_interface.hh"
 
 using namespace std;
-
+// 构造apr
 ARPMessage NetworkInterface::make_arp(const uint16_t& opcode, const EthernetAddress& target_ethernet_address, const uint32_t& target_ip_address)
 {
   ARPMessage arp_msg {};
@@ -98,7 +98,7 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
       return;
     }
 
-    arp_cache_.insert({arp_msg.sender_ip_address, {arp_msg.sender_ethernet_address, timer_elapsed + 30000}}); // arp缓存
+    arp_cache_[arp_msg.sender_ip_address] = {arp_msg.sender_ethernet_address, timer_elapsed + 30000}; // 插入或更新arp缓存
     
     if (arp_msg.opcode == ARPMessage::OPCODE_REQUEST && arp_msg.target_ip_address == ip_address_.ipv4_numeric()) // 收到arp request， 回复
     {
