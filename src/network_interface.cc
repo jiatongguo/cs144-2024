@@ -104,7 +104,7 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
 
     arp_cache_.insert({arp_msg.sender_ip_address, {arp_msg.sender_ethernet_address, timer_elapsed + 30000}}); 
     
-    if (arp_msg.opcode == ARPMessage::OPCODE_REQUEST) // 收到arp request， 回复
+    if (arp_msg.opcode == ARPMessage::OPCODE_REQUEST && arp_msg.target_ip_address == ip_address_.ipv4_numeric()) // 收到arp request， 回复
     {
       ARPMessage arp_reply {};
       arp_reply.opcode = ARPMessage::OPCODE_REPLY; // reply
