@@ -129,13 +129,13 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
     {
       for (auto& dgram : it->second)
       {
-        EthernetFrame frame {};
-        frame.header.dst = arp_msg.sender_ethernet_address;
-        frame.header.src = ethernet_address_;
-        frame.header.type = EthernetHeader::TYPE_IPv4; 
-        frame.payload = serialize(std::move(dgram)); 
+        EthernetFrame frame2 {};
+        frame2.header.dst = arp_msg.sender_ethernet_address;
+        frame2.header.src = ethernet_address_;
+        frame2.header.type = EthernetHeader::TYPE_IPv4; 
+        frame2.payload = serialize(std::move(dgram)); 
 
-        transmit(frame);
+        transmit(frame2);
       }
 
       dgram_waiting_queue_.erase(it);
@@ -147,7 +147,7 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
 void NetworkInterface::tick( const size_t ms_since_last_tick )
 {
   timer_elapsed += ms_since_last_tick;
-  
+
   auto it = arp_cache_.begin();
   while (it != arp_cache_.end())
   {
