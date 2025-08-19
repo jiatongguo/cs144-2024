@@ -5,7 +5,6 @@
 #include "network_interface.hh"
 
 using namespace std;
-
 //! \param[in] ethernet_address Ethernet (what ARP calls "hardware") address of the interface
 //! \param[in] ip_address IP (what ARP calls "protocol") address of the interface
 NetworkInterface::NetworkInterface( string_view name,
@@ -30,14 +29,10 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
   const auto addr_ipv4 = next_hop.ipv4_numeric();
 
   auto it1 = arp_cache_.find(addr_ipv4);
-  if (it1 != arp_cache_.end()) // 已arp
+  if (it1 != arp_cache_.end()) // 已arp, 直接发送
   {
-    EthernetFrame frame {};
-    frame.header.dst = it1->second.first; // 目的地址
-    frame.header.src = ethernet_address_; // 源地址
-    frame.header.type = EthernetHeader::TYPE_IPv4; // 类型
-    frame.payload = serialize(dgram); // 负载
-
+    const EthernetAddress& dst { it1->second.first };
+    const EthernetFrame& frame { {dst, ethernet_address_, EthernetHeader::TYPE_IPv4}, {serialize(dgram)} };
     transmit(frame);
   }
   else
@@ -97,7 +92,7 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
   else if (frame.header.type == EthernetHeader::TYPE_ARP)
   {
     ARPMessage arp_msg{};
-    if (!parse(arp_msg, frame.payload)) // 解析收到的帧
+    if (!parse(arp_msg, frame.payload)) // 解析
     {
       return;
     }
@@ -127,17 +122,12 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
     auto it = dgram_waiting_queue_.find(arp_msg.sender_ip_address);
     if (it != dgram_waiting_queue_.end())
     {
+      const EthernetAddress& dst = arp_msg.sender_ethernet_address;
       for (auto& dgram : it->second)
       {
-        EthernetFrame frame2 {};
-        frame2.header.dst = arp_msg.sender_ethernet_address;
-        frame2.header.src = ethernet_address_;
-        frame2.header.type = EthernetHeader::TYPE_IPv4; 
-        frame2.payload = serialize(std::move(dgram)); 
-
+        const EthernetFrame& frame2 { {dst, ethernet_address_, EthernetHeader::TYPE_IPv4}, serialize(dgram)};
         transmit(frame2);
       }
-
       dgram_waiting_queue_.erase(it);
     }
   }
