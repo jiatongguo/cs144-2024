@@ -36,14 +36,14 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
     frame.header.dst = it1->second.first; // 目的地址
     frame.header.src = ethernet_address_; // 源地址
     frame.header.type = EthernetHeader::TYPE_IPv4; // 类型
-    frame.payload = serialize(std::move(dgram)); // 负载
+    frame.payload = serialize(dgram); // 负载
 
     transmit(frame);
   }
   else
-  {
-    auto it = arp_last_request_time.find(addr_ipv4);
-    if (it == arp_last_request_time.end() || it->second < timer_elapsed ) // arp抑制（5s)
+  { // 未arp，若5s之内没发arp包，发arp包
+    auto it = arp_expire_time.find(addr_ipv4);
+    if (it == arp_expire_time.end() || it->second < timer_elapsed ) // arp抑制（5s)
     {
       ARPMessage arp_msg {};
       arp_msg.opcode = ARPMessage::OPCODE_REQUEST; // request
@@ -59,13 +59,14 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
 
       frame.payload = serialize(std::move(arp_msg)); 
 
-      transmit(frame);
+      transmit(frame); 
 
-      arp_last_request_time[addr_ipv4] = timer_elapsed + 5000; // 插入或更新过期时间
+      arp_expire_time[addr_ipv4] = timer_elapsed + 5000; // 插入或更新过期时间
     }
-
+    
+    // 判断该ip在等待队列中是否有消息
     auto it2 = dgram_waiting_queue_.find(addr_ipv4);
-    if (it2 == dgram_waiting_queue_.end()) // 不在数据报队列中
+    if (it2 == dgram_waiting_queue_.end()) 
     {
       dgram_waiting_queue_.insert({addr_ipv4, {dgram}}); 
     }
@@ -96,14 +97,14 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
   else if (frame.header.type == EthernetHeader::TYPE_ARP)
   {
     ARPMessage arp_msg{};
-    if (!parse(arp_msg, frame.payload))
+    if (!parse(arp_msg, frame.payload)) // 解析收到的帧
     {
       return;
     }
 
     arp_cache_.insert({arp_msg.sender_ip_address, {arp_msg.sender_ethernet_address, timer_elapsed + 30000}}); 
     
-    if (arp_msg.opcode == ARPMessage::OPCODE_REQUEST)
+    if (arp_msg.opcode == ARPMessage::OPCODE_REQUEST) // 收到arp request， 回复
     {
       ARPMessage arp_reply {};
       arp_reply.opcode = ARPMessage::OPCODE_REPLY; // reply
@@ -145,8 +146,8 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
 void NetworkInterface::tick( const size_t ms_since_last_tick )
 {
-  // Your code here.
   timer_elapsed += ms_since_last_tick;
+  
   auto it = arp_cache_.begin();
   while (it != arp_cache_.end())
   {
