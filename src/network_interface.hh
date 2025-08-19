@@ -7,6 +7,7 @@
 #include "address.hh"
 #include "ethernet_frame.hh"
 #include "ipv4_datagram.hh"
+#include "arp_message.hh"
 
 // A "network interface" that connects IP (the internet layer, or network layer)
 // with Ethernet (the network access layer, or link layer).
@@ -66,7 +67,7 @@ public:
   const OutputPort& output() const { return *port_; }
   OutputPort& output() { return *port_; }
   std::queue<InternetDatagram>& datagrams_received() { return datagrams_received_; }
-
+  
 private:
   // Human-readable name of the interface
   std::string name_;
@@ -74,7 +75,7 @@ private:
   // The physical output port (+ a helper function `transmit` that uses it to send an Ethernet frame)
   std::shared_ptr<OutputPort> port_;
   void transmit( const EthernetFrame& frame ) const { port_->transmit( *this, frame ); }
-
+  
   // Ethernet (known as hardware, network-access-layer, or link-layer) address of the interface
   EthernetAddress ethernet_address_; // 本机mac地址
 
@@ -90,4 +91,6 @@ private:
   std::unordered_map<AddrNumeric, std::deque<InternetDatagram>> dgram_waiting_queue_ {};
   size_t timer_elapsed {};
   std::unordered_map<AddrNumeric, size_t> arp_expire_time {}; 
+
+  ARPMessage make_arp(const uint16_t&, const EthernetAddress&, const uint32_t&);
 };
