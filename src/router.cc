@@ -42,10 +42,9 @@ void Router::route()
       for (const auto& r : router_table_)
       {
         uint8_t len { r.prefix_length};
-        uint32_t msk {0xFFFFFFFFu << (32 - len)};
         uint32_t dst = dgram.header.dst;
 
-        if ((dst & msk) == (r.route_prefix & msk))
+        if ((dst >> (32 - len)) == (r.route_prefix >> (32 - len)))
         {
           if (len > max_len)
           {
@@ -56,12 +55,12 @@ void Router::route()
         }
       }
 
+      const Address& next_h = next_hop.has_value() ? next_hop.value() : Address::from_ipv4_numeric(dgram.header.dst);
       if (--dgram.header.ttl > 0 && interface_num.has_value())
       {
         dgram.header.cksum = 0;
         dgram.header.compute_checksum();
-        _interfaces[interface_num.value()]->send_datagram(dgram,
-                      next_hop.has_value()? next_hop.value() : Address::from_ipv4_numeric(dgram.header.dst));
+        _interfaces[interface_num.value()]->send_datagram(dgram, next_h);
       }
 
       dgram_queue.pop();
