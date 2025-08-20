@@ -21,10 +21,48 @@ void Router::add_route( const uint32_t route_prefix,
        << " on interface " << interface_num << "\n";
 
   // Your code here.
+  router_table_.emplace_back(route_{route_prefix, prefix_length, next_hop, interface_num});
 }
 
 // Go through all the interfaces, and route every incoming datagram to its proper outgoing interface.
 void Router::route()
 {
-  // Your code here.
+  for (const auto& interface_ : _interfaces) // 遍历网络接口
+  {
+    auto& dgram_queue {interface_->datagrams_received()};
+    while(!dgram_queue.empty())  // 遍历消息队列
+    {
+      auto dgram = dgram_queue.front();
+
+      uint8_t max_len {0};
+      std::optional<size_t> interface_num;
+      std::optional<Address> next_hop;
+      
+      // 最长前缀匹配
+      for (auto r : router_table_)
+      {
+        uint8_t len { r.prefix_length};
+        uint32_t msk {0xFFFFFFFFu << (32 - len)};
+        uint32_t dst = dgram.header.dst;
+
+        if ((dst & msk) == (r.route_prefix & msk))
+        {
+          if (len > max_len)
+          {
+            max_len = len;
+            interface_num = r.interface_num;
+            next_hop = r.next_hop;
+          }
+        }
+      }
+
+      if (--dgram.header.ttl > 0 && interface_num.has_value())
+      {
+          _interfaces[interface_num.value()]->send_datagram(dgram,
+                      next_hop.has_value()? next_hop.value() : Address::from_ipv4_numeric(dgram.header.dst));
+      }
+
+      dgram_queue.pop();
+    }
+  }
 }
