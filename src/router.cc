@@ -39,7 +39,7 @@ void Router::route()
       std::optional<Address> next_hop;
       
       // 最长前缀匹配
-      for (auto r : router_table_)
+      for (const auto& r : router_table_)
       {
         uint8_t len { r.prefix_length};
         uint32_t msk {0xFFFFFFFFu << (32 - len)};
@@ -58,7 +58,9 @@ void Router::route()
 
       if (--dgram.header.ttl > 0 && interface_num.has_value())
       {
-          _interfaces[interface_num.value()]->send_datagram(dgram,
+        dgram.header.cksum = 0;
+        dgram.header.compute_checksum();
+        _interfaces[interface_num.value()]->send_datagram(dgram,
                       next_hop.has_value()? next_hop.value() : Address::from_ipv4_numeric(dgram.header.dst));
       }
 
