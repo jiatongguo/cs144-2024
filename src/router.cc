@@ -33,24 +33,31 @@ bool Router::prefix_match(uint32_t prefix1, uint32_t prefix2, uint8_t prefix_len
 // Go through all the interfaces, and route every incoming datagram to its proper outgoing interface.
 void Router::route()
 {
-  for (const auto& interface_ : _interfaces) // 遍历网络接口
+  for (auto& interface_ : _interfaces) // 遍历网络接口
   {
     auto& dgram_queue {interface_->datagrams_received()};
     while(!dgram_queue.empty())  // 遍历消息队列
     {
-      auto dgram = dgram_queue.front();
+      auto dgram = std::move(dgram_queue.front());
       dgram_queue.pop();
+
+      if (dgram.header.ttl <= 1) // 处理ttl
+      {
+        continue;
+      }
+      
+      --dgram.header.ttl;
+      dgram.header.compute_checksum();
 
       std::optional<uint8_t> max_len;
       std::optional<Address> next_hop;
       size_t interface_num {};
-      
+      uint32_t dst {dgram.header.dst};
+
       // 最长前缀匹配
       for (const auto& r : router_table_)
       {
         uint8_t len { r.prefix_length};
-        uint32_t dst = dgram.header.dst;
-
         if ( !max_len.has_value() || (len > max_len && prefix_match(r.route_prefix, dst, len)))
         {
             max_len = len;
@@ -59,23 +66,12 @@ void Router::route()
         }
       }
       
-      if (!max_len.has_value())
+      if (!max_len.has_value()) // 未匹配成功
       {
         continue;
       }
 
-      if (dgram.header.ttl <= 1) // 处理ttl
-      {
-        continue;
-      }
-      else
-      {
-        --dgram.header.ttl;
-      }
-      
-      const Address& next_h = next_hop.has_value() ? next_hop.value() : Address::from_ipv4_numeric(dgram.header.dst);
-      dgram.header.cksum = 0;
-      dgram.header.compute_checksum();
+      const Address& next_h = next_hop.has_value() ? next_hop.value() : Address::from_ipv4_numeric(dst);
       _interfaces[interface_num]->send_datagram(dgram, next_h);
     }
   }
