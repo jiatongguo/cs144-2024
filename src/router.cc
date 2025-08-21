@@ -58,11 +58,14 @@ void Router::route()
       for (const auto& r : router_table_)
       {
         uint8_t len { r.prefix_length};
-        if ( !max_len.has_value() || (len > max_len && prefix_match(r.route_prefix, dst, len)))
+        if (prefix_match(r.route_prefix, dst, len))
         {
+          if (!max_len.has_value() || len > max_len)
+          {
             max_len = len;
             interface_num = r.interface_num;
             next_hop = r.next_hop;
+          }
         }
       }
       
