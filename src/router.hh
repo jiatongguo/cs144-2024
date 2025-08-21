@@ -32,6 +32,7 @@ public:
 
   // Route packets between the interfaces
   void route();
+  bool prefix_match(uint32_t prefix1, uint32_t prefix2, uint8_t prefix_length); 
 
 private:
   // The router's collection of network interfaces
