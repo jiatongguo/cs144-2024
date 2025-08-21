@@ -37,6 +37,10 @@ void Router::route()
     std::cerr << "遍历网络接口" << std::endl;
     auto& dgram_queue {interface_->datagrams_received()};
     std::cerr << "获取该网络接口的消息队列" << std::endl;
+    if (dgram_queue.empty())
+    {
+      std::cerr << "队列为空" << std::endl;
+    }
     while(!dgram_queue.empty())  // 遍历消息队列
     {
       std::cerr << "遍历消息队列" << std::endl;
