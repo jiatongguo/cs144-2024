@@ -39,6 +39,7 @@ void Router::route()
     while(!dgram_queue.empty())  // 遍历消息队列
     {
       auto dgram = dgram_queue.front();
+      dgram_queue.pop();
 
       std::optional<uint8_t> max_len;
       std::optional<Address> next_hop;
@@ -50,23 +51,32 @@ void Router::route()
         uint8_t len { r.prefix_length};
         uint32_t dst = dgram.header.dst;
 
-        if ( !max_len.has_value()|| (len > max_len && prefix_match(r.route_prefix, dst, len)))
+        if ( !max_len.has_value() || (len > max_len && prefix_match(r.route_prefix, dst, len)))
         {
             max_len = len;
             interface_num = r.interface_num;
             next_hop = r.next_hop;
         }
       }
-
-      const Address& next_h = next_hop.has_value() ? next_hop.value() : Address::from_ipv4_numeric(dgram.header.dst);
-      if (--dgram.header.ttl > 0 && max_len.has_value())
+      
+      if (!max_len.has_value())
       {
-        dgram.header.cksum = 0;
-        dgram.header.compute_checksum();
-        _interfaces[interface_num]->send_datagram(dgram, next_h);
+        continue;
       }
 
-      dgram_queue.pop();
+      if (dgram.header.ttl <= 1) // 处理ttl
+      {
+        continue;
+      }
+      else
+      {
+        --dgram.header.ttl;
+      }
+      
+      const Address& next_h = next_hop.has_value() ? next_hop.value() : Address::from_ipv4_numeric(dgram.header.dst);
+      dgram.header.cksum = 0;
+      dgram.header.compute_checksum();
+      _interfaces[interface_num]->send_datagram(dgram, next_h);
     }
   }
 }
