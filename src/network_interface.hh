@@ -90,7 +90,7 @@ private:
   std::unordered_map<AddrNumeric, std::pair<EthernetAddress, size_t>> arp_cache_ {}; // ip --> mac
   std::unordered_map<AddrNumeric, std::deque<InternetDatagram>> dgram_waiting_queue_ {};
   size_t timer_elapsed {};
-  std::unordered_map<AddrNumeric, size_t> arp_expire_time {}; 
+  std::unordered_map<AddrNumeric, size_t> arp_expire_time_ {}; 
 
   ARPMessage make_arp(const uint16_t&, const EthernetAddress&, const uint32_t&);
 };

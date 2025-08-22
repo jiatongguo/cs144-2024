@@ -39,29 +39,27 @@ NetworkInterface::NetworkInterface( string_view name,
 //! can be converted to a uint32_t (raw 32-bit IP address) by using the Address::ipv4_numeric() method.
 void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Address& next_hop )
 {
-  const auto addr_ipv4 = next_hop.ipv4_numeric();
+  const auto next_hop_ipv4 = next_hop.ipv4_numeric();
 
-  auto it1 = arp_cache_.find(addr_ipv4);
+  auto it1 = arp_cache_.find(next_hop_ipv4);
   if (it1 != arp_cache_.end()) // 已arp, 直接发送
   {
     const EthernetAddress& dst { it1->second.first };
-    const EthernetFrame& frame { {dst, ethernet_address_, EthernetHeader::TYPE_IPv4}, {serialize(dgram)} };
-    transmit(frame);
+    transmit({ {dst, ethernet_address_, EthernetHeader::TYPE_IPv4}, serialize(dgram)});
   }
   else
   { // 未arp，若5s之内没发arp包，发arp包
-    auto it = arp_expire_time.find(addr_ipv4);
-    if (it == arp_expire_time.end() || it->second < timer_elapsed ) // arp抑制（5s)
+    auto it = arp_expire_time_.find(next_hop_ipv4);
+    if (it == arp_expire_time_.end() || it->second < timer_elapsed ) // arp抑制（5s)
     {
-      const ARPMessage& arp_msg {make_arp(ARPMessage::OPCODE_REQUEST, {}, addr_ipv4) };
-      const EthernetFrame& frame {{ETHERNET_BROADCAST, ethernet_address_, EthernetHeader::TYPE_ARP}, serialize(arp_msg) }; // 广播
-      transmit(frame); 
+      const ARPMessage& arp_msg {make_arp(ARPMessage::OPCODE_REQUEST, {}, next_hop_ipv4) };
+      transmit({ {ETHERNET_BROADCAST, ethernet_address_, EthernetHeader::TYPE_ARP}, serialize(arp_msg) }); 
 
-      arp_expire_time[addr_ipv4] = timer_elapsed + 5000; // 插入或更新过期时间
+      arp_expire_time_[next_hop_ipv4] = timer_elapsed + 5000; // 插入或更新过期时间
     }
     
     // 添加至等待队列
-    dgram_waiting_queue_[addr_ipv4].emplace_back(dgram);
+    dgram_waiting_queue_[next_hop_ipv4].emplace_back(dgram);
   }
 }
 
@@ -90,25 +88,24 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
       return;
     }
 
-    arp_cache_[arp_msg.sender_ip_address] = {arp_msg.sender_ethernet_address, timer_elapsed + 30000}; // 插入或更新arp缓存
+    const auto sender_ip {arp_msg.sender_ip_address};
+    const auto sender_mac{arp_msg.sender_ethernet_address};
+
+    arp_cache_[sender_ip] = {sender_mac, timer_elapsed + 30000}; // 插入或更新arp缓存
     
     if (arp_msg.opcode == ARPMessage::OPCODE_REQUEST && arp_msg.target_ip_address == ip_address_.ipv4_numeric()) // 收到arp request， 回复
     {
-      const auto& dst = arp_msg.sender_ethernet_address;
-      ARPMessage arp_reply { make_arp(ARPMessage::OPCODE_REPLY, arp_msg.sender_ethernet_address, arp_msg.sender_ip_address) };
-      const EthernetFrame& frame_reply { {dst, ethernet_address_, EthernetHeader::TYPE_ARP}, serialize(arp_reply)};
-      transmit(frame_reply);
+      ARPMessage arp_reply { make_arp(ARPMessage::OPCODE_REPLY, sender_mac, sender_ip) };
+      transmit({ {sender_mac, ethernet_address_, EthernetHeader::TYPE_ARP}, serialize(arp_reply)});
     }
     
     // 收到arp回复，立即发送等待队列中的数据报
-    auto it = dgram_waiting_queue_.find(arp_msg.sender_ip_address);
+    auto it = dgram_waiting_queue_.find(sender_ip);
     if (it != dgram_waiting_queue_.end())
     {
-      const EthernetAddress& dst = arp_msg.sender_ethernet_address;
       for (auto& dgram : it->second)
       {
-        const EthernetFrame& frame2 { {dst, ethernet_address_, EthernetHeader::TYPE_IPv4}, serialize(dgram)};
-        transmit(frame2);
+        transmit({ {sender_mac, ethernet_address_, EthernetHeader::TYPE_IPv4}, serialize(dgram)});
       }
       dgram_waiting_queue_.erase(it);
     }
@@ -133,12 +130,12 @@ void NetworkInterface::tick( const size_t ms_since_last_tick )
     }
   }
 
-  auto it2 = arp_expire_time.begin();
-  while (it2 != arp_expire_time.end()) // 清理arp抑制表
+  auto it2 = arp_expire_time_.begin();
+  while (it2 != arp_expire_time_.end()) // 清理arp抑制表
   {
     if (timer_elapsed >= it2->second )
     {
-      it2 = arp_expire_time.erase(it2);
+      it2 = arp_expire_time_.erase(it2);
     }
     else
     {
