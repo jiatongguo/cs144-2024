@@ -60,16 +60,8 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
       arp_expire_time[addr_ipv4] = timer_elapsed + 5000; // 插入或更新过期时间
     }
     
-    // 判断该ip在等待队列中是否有消息
-    auto it2 = dgram_waiting_queue_.find(addr_ipv4);
-    if (it2 == dgram_waiting_queue_.end()) 
-    {
-      dgram_waiting_queue_.insert({addr_ipv4, {dgram}}); 
-    }
-    else
-    {
-      it2->second.emplace_back(dgram);
-    }
+    // 添加至等待队列
+    dgram_waiting_queue_[addr_ipv4].emplace_back(dgram);
   }
 }
 
@@ -104,11 +96,11 @@ void NetworkInterface::recv_frame( const EthernetFrame& frame )
     {
       const auto& dst = arp_msg.sender_ethernet_address;
       ARPMessage arp_reply { make_arp(ARPMessage::OPCODE_REPLY, arp_msg.sender_ethernet_address, arp_msg.sender_ip_address) };
-      const EthernetFrame& frame_reply {dst, ethernet_address_, EthernetHeader::TYPE_ARP, serialize(arp_reply)};
+      const EthernetFrame& frame_reply { {dst, ethernet_address_, EthernetHeader::TYPE_ARP}, serialize(arp_reply)};
       transmit(frame_reply);
     }
     
-    // 立即发送等待队列中的数据报
+    // 收到arp回复，立即发送等待队列中的数据报
     auto it = dgram_waiting_queue_.find(arp_msg.sender_ip_address);
     if (it != dgram_waiting_queue_.end())
     {
@@ -129,15 +121,28 @@ void NetworkInterface::tick( const size_t ms_since_last_tick )
   timer_elapsed += ms_since_last_tick;
 
   auto it = arp_cache_.begin();
-  while (it != arp_cache_.end())
+  while (it != arp_cache_.end()) // 清理arp缓存表
   {
-    if (timer_elapsed > it->second.second )
+    if (timer_elapsed >= it->second.second )
     {
       it = arp_cache_.erase(it);
     }
     else
     {
       ++it;
+    }
+  }
+
+  auto it2 = arp_expire_time.begin();
+  while (it2 != arp_expire_time.end()) // 清理arp抑制表
+  {
+    if (timer_elapsed >= it2->second )
+    {
+      it2 = arp_expire_time.erase(it2);
+    }
+    else
+    {
+      ++it2;
     }
   }
 }
