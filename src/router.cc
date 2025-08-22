@@ -34,16 +34,9 @@ void Router::route()
 {
   for (auto& interface_ : _interfaces) // 遍历网络接口
   {
-    std::cerr << "遍历网络接口" << std::endl;
     auto& dgram_queue {interface_->datagrams_received()};
-    std::cerr << "获取该网络接口的消息队列" << std::endl;
-    if (dgram_queue.empty())
-    {
-      std::cerr << "队列为空" << std::endl;
-    }
     while(!dgram_queue.empty())  // 遍历消息队列
     {
-      std::cerr << "遍历消息队列" << std::endl;
       auto dgram = std::move(dgram_queue.front());
       dgram_queue.pop();
 
@@ -60,8 +53,7 @@ void Router::route()
       size_t interface_num {};
       uint32_t dst {dgram.header.dst};
 
-      // 最长前缀匹配
-      for (const auto& r : router_table_)
+      for (const auto& r : router_table_) // 最长前缀匹配
       {
         uint8_t len { r.prefix_length};
         if (prefix_match(r.route_prefix, dst, len))
@@ -77,14 +69,11 @@ void Router::route()
       
       if (!max_len.has_value()) // 未匹配成功
       {
-        std::cerr << "未匹配成功" << std::endl;
         continue;
       }
 
-      std::cerr << "best route :" << max_len.value() << std::endl;
-
-      Address next_h = next_hop.has_value() ? next_hop.value() : Address::from_ipv4_numeric(dst);
-      _interfaces[interface_num]->send_datagram(dgram, next_h);
+      Address nh = next_hop.has_value() ? next_hop.value() : Address::from_ipv4_numeric(dst);
+      _interfaces[interface_num]->send_datagram(dgram, nh);
     }
   }
 }
