@@ -48,7 +48,10 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
     transmit({ {dst, ethernet_address_, EthernetHeader::TYPE_IPv4}, serialize(dgram)});
   }
   else
-  { // 未arp，若5s之内没发arp包，发arp包
+  { 
+    dgram_waiting_queue_[next_hop_ipv4].emplace_back(dgram); // 添加至等待队列
+    
+    // 未arp，若5s之内没发arp包，发arp包
     auto it = arp_expire_time_.find(next_hop_ipv4);
     if (it == arp_expire_time_.end() || it->second < timer_elapsed ) // arp抑制（5s)
     {
@@ -57,9 +60,6 @@ void NetworkInterface::send_datagram( const InternetDatagram& dgram, const Addre
 
       arp_expire_time_[next_hop_ipv4] = timer_elapsed + 5000; // 插入或更新过期时间
     }
-    
-    // 添加至等待队列
-    dgram_waiting_queue_[next_hop_ipv4].emplace_back(dgram);
   }
 }
 
